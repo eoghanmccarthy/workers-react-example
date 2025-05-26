@@ -1,5 +1,5 @@
 {
-	"name": "cloudflare-workers-react",
+	"name": "workers-react-example",
 	"private": true,
 	"version": "0.0.0",
 	"type": "module",

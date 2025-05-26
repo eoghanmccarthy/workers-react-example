@@ -4,7 +4,7 @@
  */
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
-	"name": "cloudflare-workers-react",
+	"name": "workers-react-example",
 	"main": "worker/index.ts",
 	"compatibility_date": "2025-05-25",
 	"assets": {
@@ -12,7 +12,13 @@
 	},
 	"observability": {
 		"enabled": true
-	}
+	},
+	"routes": [
+		{
+			"pattern": "eoghanmccarthy.com",
+			"custom_domain": true
+		}
+	]
 	/**
 	 * Smart Placement
 	 * Docs: https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement
