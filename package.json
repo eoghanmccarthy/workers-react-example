@@ -12,6 +12,7 @@
 		"cf-typegen": "wrangler types"
 	},
 	"dependencies": {
+		"@tanstack/react-query": "^5.79.0",
 		"@tanstack/react-router": "^1.120.13",
 		"@tanstack/react-router-devtools": "^1.120.13",
 		"react": "^19.1.0",
