@@ -18,7 +18,9 @@ interface MediaPost {
 
 // Check requests for a pre-shared secret
 const hasValidHeader = (request: WorkerRequest, env: Env) => {
-  return request.headers.get("X-Custom-Auth-Key") === env.AUTH_KEY_SECRET;
+  const headerValue = request.headers.get("X-Custom-Auth-Key");
+  const expectedValue = env.AUTH_KEY_SECRET;
+  return headerValue === expectedValue;
 };
 
 function authorizeRequest(request: WorkerRequest, env: Env) {
@@ -37,21 +39,17 @@ export default {
   // @ts-expect-error TODO: Fix type error
   async fetch(request: WorkerRequest, env: Env): Promise<Response> {
     const url = new URL(request.url);
+
     // CORS headers for dev
     const corsHeaders = {
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type",
+      "Access-Control-Allow-Headers": "Content-Type, X-Custom-Auth-Key",
     };
 
     if (request.method === "OPTIONS") {
       return new Response(null, { headers: corsHeaders });
     }
-
-    // const object = await env.STORAGE.get(
-    //   "1751166552947-9c62cc46-5848-4654-9c0a-27bb81ee9e29-item-121.jpg",
-    // );
-    // console.log("Storage access successful", object);
 
     // API Routes
     if (url.pathname.startsWith("/api/")) {
@@ -98,7 +96,6 @@ export default {
 
       // POST /api/upload - Get signed upload URL for R2 (dev only)
       if (url.pathname === "/api/upload" && request.method === "PUT") {
-        console.log("Upload request received");
         // Uploading is only allowed in development
         // if (env.ENVIRONMENT !== "development") {
         //   console.log("Unauthorized upload attempt");
@@ -111,61 +108,39 @@ export default {
         //   );
         // }
 
-        const formData = await request.formData();
-        const file = formData.get("file") as File;
-        const filename = formData.get("filename") as string;
-        const contentType = formData.get("contentType") as string;
+        try {
+          const formData = await request.formData();
+          const file = formData.get("file") as File;
+          const filename = formData.get("filename") as string;
+          const contentType = formData.get("contentType") as string;
 
-        if (!file) {
-          return new Response("No file provided", { status: 400 });
+          if (!file) {
+            return new Response("No file provided", { status: 400 });
+          }
+
+          const fileKey = `${Date.now()}-${crypto.randomUUID()}-${filename}`;
+          await env.STORAGE.put(fileKey, file.stream(), {
+            httpMetadata: {
+              contentType: contentType,
+            },
+          });
+
+          // Generate public URL through the worker (not direct R2 access)
+          const publicUrl = `${new URL(request.url).origin}/media/${fileKey}`;
+          return Response.json({
+            fileKey,
+            publicUrl,
+            message: `Object ${fileKey} uploaded successfully!`,
+          });
+        } catch (error) {
+          return Response.json(
+            { error: "Failed to upload object" },
+            {
+              status: 500,
+              headers: corsHeaders,
+            },
+          );
         }
-
-        const fileKey = `${Date.now()}-${crypto.randomUUID()}-${filename}`;
-        console.log("File key generated:", fileKey);
-
-        const res = await env.STORAGE.put(fileKey, file.stream(), {
-          httpMetadata: {
-            contentType: contentType,
-          },
-        });
-        console.log("File uploaded to R2:", res);
-
-        // Generate public URL through the worker (not direct R2 access)
-        const publicUrl = `${new URL(request.url).origin}/media/${fileKey}`;
-
-        return Response.json({
-          fileKey,
-          publicUrl,
-          message: `Object ${fileKey} uploaded successfully!`,
-        });
-
-        // try {
-        //   const { filename, contentType } = await request.json();
-        //   const fileKey = `${Date.now()}-${crypto.randomUUID()}-${filename}`;
-        //
-        //   // Generate signed URL for direct upload to R2
-        //   const uploadUrl = await env.STORAGE.put(fileKey, request.body);
-        //
-        //   // Generate public URL through the worker (not direct R2 access)
-        //   const publicUrl = `${new URL(request.url).origin}/media/${fileKey}`;
-        //
-        //   return Response.json(
-        //     {
-        //       uploadUrl,
-        //       fileKey,
-        //       publicUrl,
-        //     },
-        //     { headers: corsHeaders },
-        //   );
-        // } catch (error) {
-        //   return Response.json(
-        //     { error: "Failed to generate upload URL" },
-        //     {
-        //       status: 500,
-        //       headers: corsHeaders,
-        //     },
-        //   );
-        // }
       }
 
       // POST /api/posts - Create new post (dev only)

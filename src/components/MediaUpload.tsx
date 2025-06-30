@@ -1,10 +1,5 @@
-import { useState } from "react";
 import { useForm } from "@tanstack/react-form";
 // import type { MediaType } from "../types/media";
-
-interface MediaUploadProps {
-  onUploadComplete?: () => void;
-}
 
 interface Post {
   password?: string;
@@ -22,9 +17,7 @@ const defaultPost: Post = {
   tags: "",
 };
 
-export function MediaUpload({ onUploadComplete }: MediaUploadProps) {
-  const [uploading, setUploading] = useState(false);
-
+export function MediaUpload() {
   const handleUpload = async (data: Post) => {
     const { password, file } = data;
     if (!file) return;
@@ -47,23 +40,10 @@ export function MediaUpload({ onUploadComplete }: MediaUploadProps) {
       throw new Error("Failed to get upload URL");
     }
 
-    const { uploadUrl, fileKey, publicUrl } = await uploadResponse.json();
-    console.log("Upload URL response:", uploadUrl, fileKey, publicUrl);
+    const { fileKey, publicUrl, message } = await uploadResponse.json();
+    console.log("Upload URL response:", fileKey, publicUrl, message);
 
-    // 2. Upload file directly to R2
-    // const fileUploadResponse = await fetch(uploadUrl, {
-    //   method: "PUT",
-    //   body: file,
-    //   headers: {
-    //     "Content-Type": file.type,
-    //   },
-    // });
-
-    // if (!fileUploadResponse.ok) {
-    //   throw new Error("Failed to upload file");
-    // }
-
-    // 3. Create post metadata
+    // 2. Create post metadata
     // const mediaUrl = publicUrl || `https://your-r2-domain.com/${fileKey}`;
 
     // const postResponse = await fetch("/api/posts", {
@@ -99,17 +79,12 @@ export function MediaUpload({ onUploadComplete }: MediaUploadProps) {
     defaultValues: defaultPost,
     onSubmit: async ({ value, formApi }) => {
       if (!value.file) return;
-
-      setUploading(true);
       try {
         await handleUpload(value);
         formApi.reset();
-        onUploadComplete?.();
       } catch (error) {
         console.error("Upload failed:", error);
         alert("Upload failed. Please try again.");
-      } finally {
-        setUploading(false);
       }
     },
   });
@@ -235,14 +210,18 @@ export function MediaUpload({ onUploadComplete }: MediaUploadProps) {
         />
 
         <form.Subscribe
-          selector={(state) => [state.values.file, state.canSubmit]}
-          children={([selectedFile, canSubmit]) => (
+          selector={(state) => [
+            state.values.file,
+            state.canSubmit,
+            state.isSubmitting,
+          ]}
+          children={([selectedFile, canSubmit, isSubmitting]) => (
             <button
               type="submit"
-              disabled={!selectedFile || uploading || !canSubmit}
+              disabled={!selectedFile || !!isSubmitting || !canSubmit}
               className="w-full py-2 px-4 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {uploading ? "Uploading..." : "Upload Media"}
+              {!!isSubmitting ? "Uploading..." : "Upload Media"}
             </button>
           )}
         />

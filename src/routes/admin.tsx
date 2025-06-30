@@ -18,11 +18,6 @@ function Admin() {
   //   )
   // }
 
-  const handleUploadComplete = () => {
-    // Refresh the page or show success message
-    window.location.reload();
-  };
-
   return (
     <div className="min-h-screen bg-zinc-50 py-8">
       <div className="max-w-4xl mx-auto px-4">
@@ -35,7 +30,7 @@ function Admin() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <div>
-            <MediaUpload onUploadComplete={handleUploadComplete} />
+            <MediaUpload />
           </div>
 
           <div className="bg-white rounded-lg border border-zinc-200 p-6">
