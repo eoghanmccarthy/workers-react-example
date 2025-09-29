@@ -46,13 +46,10 @@ app.use("/api/*", authMiddleware);
 
 // GET /api/posts
 app.get("/api/posts", async (c) => {
-  console.log("Fetching posts from database");
   try {
     const { results } = await c.env.DB.prepare(
       `SELECT * FROM posts ORDER BY created_at DESC`,
     ).all();
-
-    console.log("Fetched posts:", results);
 
     const posts = results.map((post) => ({
       ...post,
