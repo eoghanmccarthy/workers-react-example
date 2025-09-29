@@ -1,215 +1,69 @@
-import type { Request as WorkerRequest } from "@cloudflare/workers-types/experimental";
+import { Hono } from "hono";
+import { cors } from "hono/cors";
+import type { R2Bucket, D1Database } from "@cloudflare/workers-types";
 
-// interface MediaPost {
-//   id: number;
-//   content: string;
-//   category?: string;
-//   tags?: string[];
-//   has_media: boolean;
-//   media_urls?: string[];
-//   media_types?: string[];
-//   published: boolean;
-//   created_at: string;
-//   updated_at: string;
-// }
-
-// Check requests for a pre-shared secret
-const hasValidHeader = (request: WorkerRequest, env: Env) => {
-  const headerValue = request.headers.get("X-Custom-Auth-Key");
-  const expectedValue = env.AUTH_KEY_SECRET;
-  return headerValue === expectedValue;
+type Bindings = {
+  DB: D1Database;
+  STORAGE: R2Bucket;
+  AUTH_KEY_SECRET: string;
+  ENVIRONMENT?: string;
 };
 
-function authorizeRequest(request: WorkerRequest, env: Env) {
-  switch (request.method) {
-    case "PUT":
-    case "DELETE":
-      return hasValidHeader(request, env);
-    case "GET":
-      return true;
-    default:
-      return false;
+const app = new Hono<{ Bindings: Bindings }>();
+
+// CORS middleware
+app.use(
+  "*",
+  cors({
+    origin: "*",
+    allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowHeaders: ["Content-Type", "X-Custom-Auth-Key"],
+  }),
+);
+
+// Auth middleware for protected routes
+const authMiddleware = async (c, next) => {
+  const method = c.req.method;
+
+  if (method === "PUT" || method === "DELETE") {
+    const headerValue = c.req.header("X-Custom-Auth-Key");
+    const expectedValue = c.env.AUTH_KEY_SECRET;
+
+    if (headerValue !== expectedValue) {
+      return c.text("Forbidden", 403);
+    }
   }
-}
 
-export default {
-  // @ts-expect-error TODO: Fix type error
-  async fetch(request: WorkerRequest, env: Env): Promise<Response> {
-    const url = new URL(request.url);
+  await next();
+};
 
-    // CORS headers for dev
-    const corsHeaders = {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, X-Custom-Auth-Key",
-    };
+// Apply auth to all /api routes
+app.use("/api/*", authMiddleware);
 
-    if (request.method === "OPTIONS") {
-      return new Response(null, { headers: corsHeaders });
-    }
+// GET /api/posts
+app.get("/api/posts", async (c) => {
+  console.log("Fetching posts from database");
+  try {
+    const { results } = await c.env.DB.prepare(
+      `SELECT * FROM posts ORDER BY created_at DESC`,
+    ).all();
 
-    // API Routes
-    if (url.pathname.startsWith("/api/")) {
-      // Check if the request is authorized
-      if (!authorizeRequest(request, env)) {
-        return new Response("Forbidden", { status: 403 });
-      }
+    console.log("Fetched posts:", results);
 
-      // GET /api/posts - Fetch paginated media feed
-      if (url.pathname === "/api/posts" && request.method === "GET") {
-        console.log("Fetching posts from database");
-        try {
-          const { results } = await env.DB.prepare(
-            `SELECT * FROM posts ORDER BY created_at DESC`,
-          ).all();
+    const posts = results.map((post) => ({
+      ...post,
+    }));
 
-          console.log("Fetched posts:", results);
+    return c.json({ posts });
+  } catch (error) {
+    console.error("Error fetching posts:", error);
+    return c.json({ error: "Failed to fetch posts" }, 500);
+  }
+});
 
-          // Parse JSON fields from strings
-          const posts = results.map((post) => ({
-            ...post,
-            // tags: post.tags ? JSON.parse(post.tags) : [],
-            // media_urls: post.media_urls ? JSON.parse(post.media_urls) : [],
-            // media_types: post.media_types ? JSON.parse(post.media_types) : [],
-          }));
+// 404 handler
+app.notFound((c) => {
+  return c.json({ error: "Not found" }, 404);
+});
 
-          return Response.json({ posts }, { headers: corsHeaders });
-        } catch (error) {
-          console.error("Error fetching posts:", error);
-          return Response.json(
-            { error: "Failed to fetch posts" },
-            {
-              status: 500,
-              headers: corsHeaders,
-            },
-          );
-        }
-      }
-
-      // POST /api/upload - Get signed upload URL for R2 (dev only)
-      if (url.pathname === "/api/upload" && request.method === "PUT") {
-        // Uploading is only allowed in development
-        // if (env.ENVIRONMENT !== "development") {
-        //   console.log("Unauthorized upload attempt");
-        //   return Response.json(
-        //     { error: "Unauthorized" },
-        //     {
-        //       status: 403,
-        //       headers: corsHeaders,
-        //     },
-        //   );
-        // }
-
-        try {
-          const formData = await request.formData();
-          const file = formData.get("file") as File;
-          const filename = formData.get("filename") as string;
-          const contentType = formData.get("contentType") as string;
-
-          if (!file) {
-            return new Response("No file provided", { status: 400 });
-          }
-
-          const fileKey = `${Date.now()}-${crypto.randomUUID()}-${filename}`;
-          await env.STORAGE.put(fileKey, file.stream(), {
-            httpMetadata: {
-              contentType: contentType,
-            },
-          });
-
-          // Generate public URL through the worker (not direct R2 access)
-          const publicUrl = `${new URL(request.url).origin}/media/${fileKey}`;
-          return Response.json({
-            fileKey,
-            publicUrl,
-            message: `Object ${fileKey} uploaded successfully!`,
-          });
-        } catch (error) {
-          return Response.json(
-            { error: "Failed to upload object" },
-            {
-              status: 500,
-              headers: corsHeaders,
-            },
-          );
-        }
-      }
-
-      // POST /api/posts - Create new post (dev only)
-      // if (url.pathname === "/api/posts" && request.method === "POST") {
-      //   if (env.ENVIRONMENT !== "development") {
-      //     return Response.json(
-      //       { error: "Unauthorized" },
-      //       {
-      //         status: 403,
-      //         headers: corsHeaders,
-      //       },
-      //     );
-      //   }
-      //
-      //   try {
-      //     const post: Partial<MediaPost> = await request.json();
-      //     const id = crypto.randomUUID();
-      //     const now = Date.now();
-      //
-      //     const tagsJson = JSON.stringify(post.tags || []);
-      //
-      //     await env.DB.prepare(
-      //       `
-      //       INSERT INTO posts (
-      //         id, type, title, description, tags, media_url, thumbnail_url,
-      //         created_at, updated_at, file_size, mime_type, width, height
-      //       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      //     `,
-      //     )
-      //       .bind(
-      //         id,
-      //         post.type,
-      //         post.title,
-      //         post.description,
-      //         tagsJson,
-      //         post.media_url,
-      //         post.thumbnail_url,
-      //         now,
-      //         now,
-      //         post.file_size,
-      //         post.mime_type,
-      //         post.width,
-      //         post.height,
-      //       )
-      //       .run();
-      //
-      //     return Response.json(
-      //       {
-      //         id,
-      //         ...post,
-      //         tags: post.tags || [],
-      //         created_at: now,
-      //         updated_at: now,
-      //       },
-      //       { headers: corsHeaders },
-      //     );
-      //   } catch (error) {
-      //     return Response.json(
-      //       { error: "Failed to create post" },
-      //       {
-      //         status: 500,
-      //         headers: corsHeaders,
-      //       },
-      //     );
-      //   }
-      // }
-
-      // Fallback API response
-      return Response.json(
-        { error: "API endpoint not found" },
-        {
-          status: 404,
-          headers: corsHeaders,
-        },
-      );
-    }
-
-    return new Response(null, { status: 404 });
-  },
-} satisfies ExportedHandler<Env>;
+export default app;
