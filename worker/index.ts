@@ -68,9 +68,9 @@ export default {
           // Parse JSON fields from strings
           const posts = results.map((post) => ({
             ...post,
-            tags: post.tags ? JSON.parse(post.tags) : [],
-            media_urls: post.media_urls ? JSON.parse(post.media_urls) : [],
-            media_types: post.media_types ? JSON.parse(post.media_types) : [],
+            // tags: post.tags ? JSON.parse(post.tags) : [],
+            // media_urls: post.media_urls ? JSON.parse(post.media_urls) : [],
+            // media_types: post.media_types ? JSON.parse(post.media_types) : [],
           }));
 
           return Response.json({ posts }, { headers: corsHeaders });
@@ -136,69 +136,69 @@ export default {
       }
 
       // POST /api/posts - Create new post (dev only)
-      if (url.pathname === "/api/posts" && request.method === "POST") {
-        if (env.ENVIRONMENT !== "development") {
-          return Response.json(
-            { error: "Unauthorized" },
-            {
-              status: 403,
-              headers: corsHeaders,
-            },
-          );
-        }
-
-        try {
-          const post: Partial<MediaPost> = await request.json();
-          const id = crypto.randomUUID();
-          const now = Date.now();
-
-          const tagsJson = JSON.stringify(post.tags || []);
-
-          await env.DB.prepare(
-            `
-            INSERT INTO posts (
-              id, type, title, description, tags, media_url, thumbnail_url,
-              created_at, updated_at, file_size, mime_type, width, height
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          `,
-          )
-            .bind(
-              id,
-              post.type,
-              post.title,
-              post.description,
-              tagsJson,
-              post.media_url,
-              post.thumbnail_url,
-              now,
-              now,
-              post.file_size,
-              post.mime_type,
-              post.width,
-              post.height,
-            )
-            .run();
-
-          return Response.json(
-            {
-              id,
-              ...post,
-              tags: post.tags || [],
-              created_at: now,
-              updated_at: now,
-            },
-            { headers: corsHeaders },
-          );
-        } catch (error) {
-          return Response.json(
-            { error: "Failed to create post" },
-            {
-              status: 500,
-              headers: corsHeaders,
-            },
-          );
-        }
-      }
+      // if (url.pathname === "/api/posts" && request.method === "POST") {
+      //   if (env.ENVIRONMENT !== "development") {
+      //     return Response.json(
+      //       { error: "Unauthorized" },
+      //       {
+      //         status: 403,
+      //         headers: corsHeaders,
+      //       },
+      //     );
+      //   }
+      //
+      //   try {
+      //     const post: Partial<MediaPost> = await request.json();
+      //     const id = crypto.randomUUID();
+      //     const now = Date.now();
+      //
+      //     const tagsJson = JSON.stringify(post.tags || []);
+      //
+      //     await env.DB.prepare(
+      //       `
+      //       INSERT INTO posts (
+      //         id, type, title, description, tags, media_url, thumbnail_url,
+      //         created_at, updated_at, file_size, mime_type, width, height
+      //       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      //     `,
+      //     )
+      //       .bind(
+      //         id,
+      //         post.type,
+      //         post.title,
+      //         post.description,
+      //         tagsJson,
+      //         post.media_url,
+      //         post.thumbnail_url,
+      //         now,
+      //         now,
+      //         post.file_size,
+      //         post.mime_type,
+      //         post.width,
+      //         post.height,
+      //       )
+      //       .run();
+      //
+      //     return Response.json(
+      //       {
+      //         id,
+      //         ...post,
+      //         tags: post.tags || [],
+      //         created_at: now,
+      //         updated_at: now,
+      //       },
+      //       { headers: corsHeaders },
+      //     );
+      //   } catch (error) {
+      //     return Response.json(
+      //       { error: "Failed to create post" },
+      //       {
+      //         status: 500,
+      //         headers: corsHeaders,
+      //       },
+      //     );
+      //   }
+      // }
 
       // Fallback API response
       return Response.json(
