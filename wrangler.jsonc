@@ -23,13 +23,15 @@
 		{
 			"binding": "DB",
 			"database_name": "eoghanmccarthy-com-db",
-			"database_id": "b20f6a37-299b-4402-9a60-a2c31dad2593"
+			"database_id": "b20f6a37-299b-4402-9a60-a2c31dad2593",
+			"preview_database_id": "780f3f37-7b7e-47e1-8647-a9393d535529"
 		}
 	],
 	"r2_buckets": [
 		{
+			"binding": "STORAGE",
 			"bucket_name": "eoghanmccarthy-com-storage",
-			"binding": "STORAGE"
+			"preview_bucket_name": "eoghanmccarthy-com-storage-preview"
 		}
 	],
 	"vars": {

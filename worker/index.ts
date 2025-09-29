@@ -1,19 +1,16 @@
 import type { Request as WorkerRequest } from "@cloudflare/workers-types/experimental";
 
 interface MediaPost {
-  id: string;
-  type: "image" | "video" | "audio";
-  title?: string;
-  description?: string;
+  id: number;
+  content: string;
+  category?: string;
   tags?: string[];
-  media_url: string;
-  thumbnail_url?: string;
-  created_at: number;
-  updated_at: number;
-  file_size?: number;
-  mime_type?: string;
-  width?: number;
-  height?: number;
+  has_media: boolean;
+  media_urls?: string[];
+  media_types?: string[];
+  published: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 // Check requests for a pre-shared secret
@@ -59,40 +56,35 @@ export default {
       }
 
       // GET /api/posts - Fetch paginated media feed
-      // if (url.pathname === "/api/posts" && request.method === "GET") {
-      //   const limit = parseInt(url.searchParams.get("limit") || "20");
-      //   const offset = parseInt(url.searchParams.get("offset") || "0");
-      //
-      //   try {
-      //     const { results } = await env.DB.prepare(
-      //       "SELECT * FROM posts ORDER BY created_at DESC LIMIT ? OFFSET ?",
-      //     )
-      //       .bind(limit, offset)
-      //       .all();
-      //
-      //     // Parse tags from JSON string
-      //     const posts = results.map((post) => ({
-      //       ...post,
-      //       tags: post.tags ? JSON.parse(post.tags) : [],
-      //     }));
-      //
-      //     return Response.json(
-      //       {
-      //         posts,
-      //         hasMore: results.length === limit,
-      //       },
-      //       { headers: corsHeaders },
-      //     );
-      //   } catch (error) {
-      //     return Response.json(
-      //       { error: "Failed to fetch posts" },
-      //       {
-      //         status: 500,
-      //         headers: corsHeaders,
-      //       },
-      //     );
-      //   }
-      // }
+      if (url.pathname === "/api/posts" && request.method === "GET") {
+        console.log("Fetching posts from database");
+        try {
+          const { results } = await env.DB.prepare(
+            `SELECT * FROM posts ORDER BY created_at DESC`,
+          ).all();
+
+          console.log("Fetched posts:", results);
+
+          // Parse JSON fields from strings
+          const posts = results.map((post) => ({
+            ...post,
+            tags: post.tags ? JSON.parse(post.tags) : [],
+            media_urls: post.media_urls ? JSON.parse(post.media_urls) : [],
+            media_types: post.media_types ? JSON.parse(post.media_types) : [],
+          }));
+
+          return Response.json({ posts }, { headers: corsHeaders });
+        } catch (error) {
+          console.error("Error fetching posts:", error);
+          return Response.json(
+            { error: "Failed to fetch posts" },
+            {
+              status: 500,
+              headers: corsHeaders,
+            },
+          );
+        }
+      }
 
       // POST /api/upload - Get signed upload URL for R2 (dev only)
       if (url.pathname === "/api/upload" && request.method === "PUT") {
@@ -216,34 +208,6 @@ export default {
           headers: corsHeaders,
         },
       );
-    }
-
-    // Media serving route - /media/:fileKey
-    if (url.pathname.startsWith("/media/")) {
-      const fileKey = url.pathname.split("/media/")[1];
-
-      try {
-        const object = await env.STORAGE.get(fileKey);
-        console.log("Serving file:", fileKey);
-
-        if (!object) {
-          return new Response("File not found", { status: 404 });
-        }
-
-        // Get the content type from the object metadata or guess from file extension
-        const contentType =
-          object.httpMetadata?.contentType || "application/octet-stream";
-
-        return new Response(object.body, {
-          headers: {
-            "Content-Type": contentType,
-            "Cache-Control": "public, max-age=31536000", // Cache for 1 year
-            ...corsHeaders,
-          },
-        });
-      } catch (error) {
-        return new Response("Error serving file", { status: 500 });
-      }
     }
 
     return new Response(null, { status: 404 });
