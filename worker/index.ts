@@ -1,17 +1,17 @@
 import type { Request as WorkerRequest } from "@cloudflare/workers-types/experimental";
 
-interface MediaPost {
-  id: number;
-  content: string;
-  category?: string;
-  tags?: string[];
-  has_media: boolean;
-  media_urls?: string[];
-  media_types?: string[];
-  published: boolean;
-  created_at: string;
-  updated_at: string;
-}
+// interface MediaPost {
+//   id: number;
+//   content: string;
+//   category?: string;
+//   tags?: string[];
+//   has_media: boolean;
+//   media_urls?: string[];
+//   media_types?: string[];
+//   published: boolean;
+//   created_at: string;
+//   updated_at: string;
+// }
 
 // Check requests for a pre-shared secret
 const hasValidHeader = (request: WorkerRequest, env: Env) => {
