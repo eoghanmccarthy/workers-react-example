@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import type { R2Bucket, D1Database } from "@cloudflare/workers-types";
+import type { Context, Next } from "hono";
 
 type Bindings = {
   DB: D1Database;
@@ -22,7 +23,10 @@ app.use(
 );
 
 // Auth middleware for protected routes
-const authMiddleware = async (c, next) => {
+const authMiddleware = async (
+  c: Context<{ Bindings: Bindings }>,
+  next: Next,
+) => {
   const method = c.req.method;
 
   if (method === "PUT" || method === "DELETE") {
