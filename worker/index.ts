@@ -53,6 +53,9 @@ app.get("/api/posts", async (c) => {
 
     const posts = results.map((post) => ({
       ...post,
+      tags: post.tags ? JSON.parse(post.tags) : [],
+      media_urls: post.media_urls ? JSON.parse(post.media_urls) : [],
+      media_types: post.media_types ? JSON.parse(post.media_types) : [],
     }));
 
     return c.json({ posts });

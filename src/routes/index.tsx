@@ -1,73 +1,71 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, queryOptions } from "@tanstack/react-query";
 
+import { timeAgo } from "../utils.ts";
+
+import { Logo } from "../components/logo.tsx";
+
 export const Route = createFileRoute("/")({
   component: Index,
 });
 
-const projects = [
-  {
-    description:
-      "A digital camera interface that reimagines the viewfinder experience",
-    tags: ["camera", "ui", "photography"],
-    image:
-      "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=800&auto=format&fit=crop&q=60",
-  },
-  {
-    description:
-      "A collection of carefully crafted gradients inspired by Japanese aesthetics",
-    tags: ["design", "colors", "ui"],
-    image:
-      "https://images.unsplash.com/photo-1557683316-973673baf926?w=800&auto=format&fit=crop&q=60",
-  },
-  {
-    description: "Digital black and white film simulation for iOS devices",
-    tags: ["ios", "photography", "app"],
-    image:
-      "https://images.unsplash.com/photo-1554048612-b6a482bc67e5?w=800&auto=format&fit=crop&q=60",
-  },
-  {
-    description: "A minimalist camera interface focusing on the essential",
-    tags: ["camera", "minimal", "design"],
-    image:
-      "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=800&auto=format&fit=crop&q=60",
-  },
-];
+const DOMAIN =
+  import.meta.env.MODE === "production"
+    ? "https://assets.eoghanmccarthy.com"
+    : "https://pub-9045fd240c4d45eebb85c761f7d83dcd.r2.dev";
+const BUCKET_NAME = "eoghanmccarthy-com-storage";
 
-function ProjectCard({
-  description,
-  tags,
-  image,
-}: {
-  description: string;
-  tags: string[];
-  image: string;
-}) {
+function convertToPublicUrl(r2Url: string | undefined) {
+  if (!r2Url) {
+    return null;
+  }
+
+  // Extract the path after the bucket name
+  const parts = r2Url.split(`/${BUCKET_NAME}/`);
+  if (parts.length < 2) {
+    throw new Error("Invalid R2 URL format");
+  }
+
+  const path = parts[1];
+  return `${DOMAIN}/${path}`;
+}
+
+function ProjectCard({ post }: { post: any }) {
+  const publicUrl = convertToPublicUrl(post.media_urls[0]);
+
   return (
-    <div className="grid grid-cols-1 gap-3 items-center">
-      <div className="relative bg-zinc-900 rounded-sm border border-zinc-800">
-        <img
-          src={image}
-          alt={description}
-          className="w-full object-cover rounded-sm"
-        />
+    <article className="grid grid-cols-[50px_auto] rounded-2xl overflow-hidden px-8 pt-8 pb-5 gap-y-2 gap-x-8 bg-white text-zinc-900 text-[20px]">
+      <picture className="self-end col-start-1 row-span-2 z-[1]">
+        <Logo className="w-[50px] h-auto" fill="#fed6e3" />
+      </picture>
+      <header className="align-baseline justify-between col-start-2 flex-wrap flex gap-2">
+        <span className="bg-zinc-600">{post.category || "Stuff"}</span>
+        <time dateTime={post.created_at} className="text-xs">
+          {timeAgo(post.created_at)}
+        </time>
+      </header>
+      <div className="col-start-2 gap-2 flex flex-wrap items-center">
+        {post.tags}
       </div>
-      <div className="">
-        <p className="text-xs mb-2">{description}</p>
-        <div className="flex flex-wrap gap-2">
-          {tags.map((tag, index) => (
-            <span key={index} className="text-xs text-zinc-500">
-              #{tag}
-            </span>
-          ))}
-        </div>
-      </div>
-    </div>
+      <section className="col-start-2 gap-3 grid mt-3">
+        <p>{post.content}</p>
+      </section>
+      {publicUrl ? (
+        <figure className="grid place-items-center gap-2 my-3 col-span-2 -mx-8">
+          <picture>
+            <img src={publicUrl} alt={post.content} />
+          </picture>
+        </figure>
+      ) : null}
+      <footer className="col-span-2 mt-3 [figure~_&]:mt-0 flex flex-wrap items-center justify-end gap-3">
+        share
+      </footer>
+    </article>
   );
 }
 
 function Index() {
-  const query = useQuery(
+  const { data } = useQuery(
     queryOptions({
       queryKey: ["posts"],
       queryFn: async () => {
@@ -78,27 +76,17 @@ function Index() {
         }
 
         const data = await response.json();
-        console.log("data", data);
         return data;
       },
     }),
   );
-  console.log("query", query);
 
   return (
     <main className="pt-6 px-6">
-      {/* <section className="mb-18">
-                <h1 className="text-base font-medium mb-6">Reductionist Design Studio</h1>
-            </section> */}
       <section className="flex flex-col items-center">
         <div className="space-y-8 w-full max-w-192">
-          {projects.map((project, index) => (
-            <ProjectCard
-              key={index}
-              description={project.description}
-              tags={project.tags}
-              image={project.image}
-            />
+          {data?.posts.map((post) => (
+            <ProjectCard key={post.id} post={post} />
           ))}
         </div>
       </section>
