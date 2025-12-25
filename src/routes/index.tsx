@@ -39,7 +39,7 @@ function ProjectCard({ post }: { post: any }) {
         <Logo className="w-[50px] h-auto" fill="#fed6e3" />
       </picture>
       <header className="align-baseline justify-between col-start-2 flex-wrap flex gap-2">
-        <span className="bg-zinc-600">{post.category || "Stuff"}</span>
+        <span className="bg-zinc-600">{post.category || "Random"}</span>
         <time dateTime={post.created_at} className="text-xs">
           {timeAgo(post.created_at)}
         </time>
